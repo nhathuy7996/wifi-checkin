@@ -195,6 +195,38 @@
       color: #6c757d;
       margin-top: 5px;
     }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .checkbox-group label {
+      margin: 0;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .bot-token-container {
+      margin-top: 10px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 2px solid #e9ecef;
+    }
+
+    .bot-token-container.disabled {
+      opacity: 0.6;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
@@ -217,9 +249,19 @@
     </div>
 
     <div class="form-group">
-      <label for="botToken">Telegram Bot Token:</label>
-      <input type="text" id="botToken" placeholder="VD: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz">
-      <div class="info-text">Lấy từ @BotFather trên Telegram</div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="useCustomBot">
+        <label for="useCustomBot">Sử dụng Telegram Bot riêng (custom bot token)</label>
+      </div>
+      <div class="info-text" style="margin-bottom: 10px;">
+        Nếu không chọn, ứng dụng sẽ sử dụng bot token mặc định từ cấu hình .env
+      </div>
+      
+      <div class="bot-token-container" id="botTokenContainer">
+        <label for="botToken">Telegram Bot Token:</label>
+        <input type="text" id="botToken" placeholder="VD: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz">
+        <div class="info-text">Lấy từ @BotFather trên Telegram</div>
+      </div>
     </div>
 
     <div class="form-group">

@@ -9,6 +9,9 @@
 - ✅ Giao diện đơn giản, dễ sử dụng
 - ✅ Cấu hình linh hoạt: WiFi name, bot token, chat ID, thời gian kiểm tra
 - ✅ Test kết nối Telegram trước khi sử dụng
+- ✅ **Hỗ trợ 2 chế độ Bot Token:**
+  - Dùng bot token mặc định từ file `.env` (dành cho admin)
+  - Dùng custom bot token riêng (dành cho từng user)
 
 ## 📋 Yêu cầu hệ thống
 
@@ -71,26 +74,53 @@ sudo dpkg -i wifi-telegram-checker_1.0.0_amd64.deb
 
 ## 📱 Sử dụng
 
-### 1. Khởi động ứng dụng
+### 1. Cấu hình Bot Token (Quan trọng!)
+
+**Có 2 cách sử dụng bot token:**
+
+#### Cách 1: Dùng Bot Token mặc định (từ .env) - Khuyên dùng cho admin
+
+1. Copy file `.env.example` thành `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Mở file `.env` và thêm bot token:
+   ```env
+   DEFAULT_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
+   ```
+
+3. Trong giao diện app: **KHÔNG** chọn checkbox "Sử dụng Telegram Bot riêng"
+
+#### Cách 2: Dùng Custom Bot Token - Dành cho từng user
+
+1. Trong giao diện app: **CHỌN** checkbox "Sử dụng Telegram Bot riêng"
+2. Nhập bot token của riêng bạn vào input field
+
+📖 Xem chi tiết: [BOT_TOKEN_GUIDE.md](./BOT_TOKEN_GUIDE.md)
+
+### 2. Khởi động ứng dụng
 
 ```bash
 ./start.sh
+# hoặc
+npm start
 ```
 
-### 2. Cấu hình
-
-Trong giao diện ứng dụng:
+### 3. Cấu hình trong giao diện
 
 1. **Tên WiFi (SSID)**: Nhập chính xác tên WiFi cần theo dõi
    - Kiểm tra tên WiFi hiện tại: `nmcli dev wifi | grep '*'`
 
-2. **Telegram Bot Token**: Paste token từ BotFather
+2. **Sử dụng Telegram Bot riêng**: Chọn nếu muốn dùng bot riêng (không dùng .env)
 
-3. **Telegram Chat ID**: Paste ID từ userinfobot
+3. **Telegram Bot Token**: Chỉ hiện khi chọn "Use Custom Bot"
 
-4. **Khoảng thời gian kiểm tra**: Số giây giữa các lần kiểm tra (mặc định: 30)
+4. **Telegram Chat ID**: Paste ID từ userinfobot
 
-### 3. Test và bắt đầu
+5. **Khoảng thời gian kiểm tra**: Số giây giữa các lần kiểm tra (mặc định: 30)
+
+### 4. Test và bắt đầu
 
 1. Nhấn **"💾 Lưu cấu hình"**
 2. Nhấn **"🔔 Test Telegram"** để kiểm tra kết nối

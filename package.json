@@ -13,7 +13,7 @@
     "url": "https://github.com/gamedevtoi/wifi-telegram-checker.git"
   },
   "scripts": {
-    "build": "tsc && cp src/renderer.html dist/renderer.html",
+    "build": "tsc && cp src/renderer.html dist/renderer.html && cp icon.png dist/icon.png && cp -n .env dist/.env 2>/dev/null || true",
     "watch": "tsc -w",
     "start": "npm run build && exec electron .",
     "dev": "npm run build && exec electron .",
@@ -33,16 +33,18 @@
   ],
   "license": "MIT",
   "devDependencies": {
+    "@types/dotenv": "^6.1.1",
     "@types/node": "^20.19.25",
     "electron": "^27.3.11",
     "electron-builder": "^24.9.1",
     "typescript": "^5.3.2"
   },
   "dependencies": {
+    "dotenv": "^17.2.3",
     "node-telegram-bot-api": "^0.64.0"
   },
   "build": {
-    "appId": "com.wifichecker.app",
+    "appId": "com.gamedevtoi.wificheckin",
     "productName": "WiFi Telegram Checker",
     "directories": {
       "output": "release"
@@ -50,7 +52,17 @@
     "files": [
       "dist/**/*",
       "icon.png",
+      "icon.icns",
+      "icon.ico",
+      ".env",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": ".env",
+        "to": ".env",
+        "filter": ["**/*"]
+      }
     ],
     "linux": {
       "target": [
@@ -63,18 +75,31 @@
     },
     "mac": {
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": ["universal"]
+        },
+        {
+          "target": "zip",
+          "arch": ["universal"]
+        }
       ],
-      "icon": "icon.png",
-      "category": "public.app-category.utilities"
+      "icon": "icon.icns",
+      "category": "public.app-category.utilities",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": {
+        "teamId": "${APPLE_TEAM_ID}"
+      }
     },
     "win": {
       "target": [
         "nsis",
         "portable"
       ],
-      "icon": "icon.png"
+      "icon": "icon.ico"
     },
     "nsis": {
       "oneClick": false,

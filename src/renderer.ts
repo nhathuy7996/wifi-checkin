@@ -2,6 +2,8 @@ const { ipcRenderer } = require('electron');
 
 // DOM elements
 const wifiSSIDInput = document.getElementById('wifiSSID') as HTMLInputElement;
+const useCustomBotCheckbox = document.getElementById('useCustomBot') as HTMLInputElement;
+const botTokenContainer = document.getElementById('botTokenContainer') as HTMLDivElement;
 const botTokenInput = document.getElementById('botToken') as HTMLInputElement;
 const chatIdInput = document.getElementById('chatId') as HTMLInputElement;
 const checkIntervalInput = document.getElementById('checkInterval') as HTMLInputElement;
@@ -16,25 +18,51 @@ const messageBox = document.getElementById('messageBox') as HTMLDivElement;
 
 let isMonitoring = false;
 
+// Toggle bot token input based on checkbox
+function updateBotTokenVisibility() {
+  if (useCustomBotCheckbox.checked) {
+    botTokenContainer.classList.remove('disabled');
+    botTokenInput.disabled = false;
+  } else {
+    botTokenContainer.classList.add('disabled');
+    botTokenInput.disabled = true;
+  }
+}
+
+// Handle checkbox change
+useCustomBotCheckbox.addEventListener('change', () => {
+  updateBotTokenVisibility();
+});
+
 // Load config on startup
 ipcRenderer.on('config-loaded', (_event: any, config: any) => {
   wifiSSIDInput.value = config.targetWiFiSSID;
-  botTokenInput.value = config.telegramBotToken;
+  botTokenInput.value = config.telegramBotToken || '';
   chatIdInput.value = config.telegramChatId;
   checkIntervalInput.value = (config.checkInterval / 1000).toString();
+  useCustomBotCheckbox.checked = config.useCustomBot || false;
+  updateBotTokenVisibility();
 });
 
 // Save config
 saveBtn.addEventListener('click', () => {
+  const useCustomBot = useCustomBotCheckbox.checked;
   const config = {
     targetWiFiSSID: wifiSSIDInput.value.trim(),
     telegramBotToken: botTokenInput.value.trim(),
     telegramChatId: chatIdInput.value.trim(),
-    checkInterval: parseInt(checkIntervalInput.value) * 1000
+    checkInterval: parseInt(checkIntervalInput.value) * 1000,
+    useCustomBot: useCustomBot
   };
 
-  if (!config.targetWiFiSSID || !config.telegramBotToken || !config.telegramChatId) {
+  if (!config.targetWiFiSSID || !config.telegramChatId) {
     showMessage('Vui lòng điền đầy đủ thông tin!', 'error');
+    return;
+  }
+
+  // Check bot token only if using custom bot
+  if (useCustomBot && !config.telegramBotToken) {
+    showMessage('Vui lòng nhập Bot Token hoặc bỏ chọn "Sử dụng Telegram Bot riêng"!', 'error');
     return;
   }
 
@@ -53,8 +81,16 @@ ipcRenderer.on('config-saved', (_event: any, config: any) => {
 
 // Test Telegram connection
 testBtn.addEventListener('click', () => {
-  if (!botTokenInput.value.trim() || !chatIdInput.value.trim()) {
-    showMessage('Vui lòng nhập Bot Token và Chat ID!', 'error');
+  const useCustomBot = useCustomBotCheckbox.checked;
+  
+  if (!chatIdInput.value.trim()) {
+    showMessage('Vui lòng nhập Chat ID!', 'error');
+    return;
+  }
+
+  // Check bot token only if using custom bot
+  if (useCustomBot && !botTokenInput.value.trim()) {
+    showMessage('Vui lòng nhập Bot Token hoặc bỏ chọn "Sử dụng Telegram Bot riêng"!', 'error');
     return;
   }
 

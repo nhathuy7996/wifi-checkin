@@ -3,12 +3,21 @@ import * as path from 'path';
 import { checkWiFiConnection } from './wifi-checker';
 import { sendTelegramMessage } from './telegram';
 import * as fs from 'fs';
+import * as dotenv from 'dotenv';
+
+// Load .env file from the app root directory (development or production)
+const envPath = app.isPackaged 
+  ? path.join(process.resourcesPath, '.env')
+  : path.join(__dirname, '..', '.env');
+
+dotenv.config({ path: envPath });
 
 interface Config {
   targetWiFiSSID: string;
   telegramBotToken: string;
   telegramChatId: string;
   checkInterval: number; // in milliseconds
+  useCustomBot: boolean; // true = use custom token, false = use .env token
 }
 
 let mainWindow: BrowserWindow | null = null;
@@ -30,11 +39,13 @@ function loadConfig(): Config {
   }
 
   // Default config
+  const defaultBotToken = process.env.DEFAULT_BOT_TOKEN || '';
   return {
     targetWiFiSSID: 'YOUR_WIFI_NAME',
-    telegramBotToken: 'YOUR_BOT_TOKEN',
+    telegramBotToken: '',
     telegramChatId: 'YOUR_CHAT_ID',
-    checkInterval: 30000 // 30 seconds
+    checkInterval: 30000, // 30 seconds
+    useCustomBot: false // Default use bot from .env
   };
 }
 
@@ -50,8 +61,8 @@ function saveConfig(newConfig: Config) {
 function createWindow() {
   console.log('Creating window...');
   
-  // Set icon path
-  const iconPath = path.join(__dirname, '..', 'icon.png');
+  // Set icon path (try both locations for development and production)
+  const iconPath = path.join(__dirname, 'icon.png');
   
   mainWindow = new BrowserWindow({
     width: 600,
@@ -91,20 +102,31 @@ function createWindow() {
   //mainWindow.webContents.openDevTools(); // Open DevTools to debug
 }
 
+// Get the correct bot token based on useCustomBot setting
+function getBotToken(): string {
+  if (config.useCustomBot) {
+    return config.telegramBotToken;
+  }
+  return process.env.DEFAULT_BOT_TOKEN || '';
+}
+
 async function checkAndNotify() {
   try {
     const isConnected = await checkWiFiConnection(config.targetWiFiSSID);
+    console.log(`[WiFi Check] Target: ${config.targetWiFiSSID} | Connected: ${isConnected} | Last Status: ${lastConnectionStatus}`);
     
     // Send notification only when status changes from disconnected to connected
     if (isConnected && !lastConnectionStatus) {
+      console.log(`[WiFi Check] Status changed to CONNECTED! Sending notification...`);
       const message = `✅ Đã kết nối đến WiFi: ${config.targetWiFiSSID}\nThời gian: ${new Date().toLocaleString('vi-VN')}`;
       
       try {
         await sendTelegramMessage(
-          config.telegramBotToken,
+          getBotToken(),
           config.telegramChatId,
           message
         );
+        console.log(`[Telegram] Message sent successfully!`);
         
         if (mainWindow) {
           mainWindow.webContents.send('status-update', {
@@ -207,8 +229,18 @@ ipcMain.on('save-config', (event: any, newConfig: Config) => {
 ipcMain.on('test-connection', async () => {
   try {
     const message = `🔔 Test thông báo từ WiFi Checker\nThời gian: ${new Date().toLocaleString('vi-VN')}`;
+    const botToken = getBotToken();
+    
+    if (!botToken) {
+      mainWindow?.webContents.send('test-result', { 
+        success: false, 
+        message: 'Bot token không tồn tại. Vui lòng kiểm tra .env hoặc nhập custom token!' 
+      });
+      return;
+    }
+    
     await sendTelegramMessage(
-      config.telegramBotToken,
+      botToken,
       config.telegramChatId,
       message
     );
