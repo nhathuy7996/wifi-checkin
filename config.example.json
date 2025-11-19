@@ -1,0 +1,12 @@
+{
+  "targetWiFiSSID": "YOUR_WIFI_NAME",
+  "telegramBotToken": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
+  "telegramChatId": "123456789",
+  "checkInterval": 30000,
+  "_comments": {
+    "targetWiFiSSID": "Tên chính xác của WiFi cần theo dõi (case-sensitive)",
+    "telegramBotToken": "Token từ @BotFather trên Telegram",
+    "telegramChatId": "Chat ID của bạn (lấy từ @userinfobot)",
+    "checkInterval": "Khoảng thời gian kiểm tra (milliseconds), 30000 = 30 giây"
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "name": "wifi-telegram-checker",
+  "version": "1.0.0",
+  "description": "Electron app to check WiFi connection and send Telegram messages",
+  "main": "dist/main.js",
+  "author": {
+    "name": "GameDevToi",
+    "email": "nhat.huy.7996@gmail.com"
+  },
+  "homepage": "https://gamedevtoi.top",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gamedevtoi/wifi-telegram-checker.git"
+  },
+  "scripts": {
+    "build": "tsc && cp src/renderer.html dist/renderer.html",
+    "watch": "tsc -w",
+    "start": "npm run build && exec electron .",
+    "dev": "npm run build && exec electron .",
+    "electron": "exec electron .",
+    "pack": "electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:all": "npm run build && electron-builder -mwl",
+    "test-wifi": "node -e \"const {getCurrentWiFiSSID} = require('./dist/wifi-checker'); getCurrentWiFiSSID().then(ssid => console.log('Current WiFi:', ssid))\""
+  },
+  "keywords": [
+    "electron",
+    "wifi",
+    "telegram"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.19.25",
+    "electron": "^27.3.11",
+    "electron-builder": "^24.9.1",
+    "typescript": "^5.3.2"
+  },
+  "dependencies": {
+    "node-telegram-bot-api": "^0.64.0"
+  },
+  "build": {
+    "appId": "com.wifichecker.app",
+    "productName": "WiFi Telegram Checker",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "icon.png",
+      "package.json"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "icon.png",
+      "category": "Utility",
+      "maintainer": "GameDevToi <nhat.huy.7996@gmail.com>"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "icon.png",
+      "category": "public.app-category.utilities"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
