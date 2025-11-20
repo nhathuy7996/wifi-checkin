@@ -2,11 +2,10 @@ const { ipcRenderer } = require('electron');
 
 // DOM elements
 const wifiSSIDInput = document.getElementById('wifiSSID') as HTMLInputElement;
-const useCustomBotCheckbox = document.getElementById('useCustomBot') as HTMLInputElement;
-const botTokenContainer = document.getElementById('botTokenContainer') as HTMLDivElement;
-const botTokenInput = document.getElementById('botToken') as HTMLInputElement;
 const chatIdInput = document.getElementById('chatId') as HTMLInputElement;
 const checkIntervalInput = document.getElementById('checkInterval') as HTMLInputElement;
+const workDurationInput = document.getElementById('workDuration') as HTMLInputElement;
+const countdownDiv = document.getElementById('countdown') as HTMLDivElement;
 const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement;
 const testBtn = document.getElementById('testBtn') as HTMLButtonElement;
 const startBtn = document.getElementById('startBtn') as HTMLButtonElement;
@@ -18,51 +17,25 @@ const messageBox = document.getElementById('messageBox') as HTMLDivElement;
 
 let isMonitoring = false;
 
-// Toggle bot token input based on checkbox
-function updateBotTokenVisibility() {
-  if (useCustomBotCheckbox.checked) {
-    botTokenContainer.classList.remove('disabled');
-    botTokenInput.disabled = false;
-  } else {
-    botTokenContainer.classList.add('disabled');
-    botTokenInput.disabled = true;
-  }
-}
-
-// Handle checkbox change
-useCustomBotCheckbox.addEventListener('change', () => {
-  updateBotTokenVisibility();
-});
-
 // Load config on startup
 ipcRenderer.on('config-loaded', (_event: any, config: any) => {
   wifiSSIDInput.value = config.targetWiFiSSID;
-  botTokenInput.value = config.telegramBotToken || '';
   chatIdInput.value = config.telegramChatId;
   checkIntervalInput.value = (config.checkInterval / 1000).toString();
-  useCustomBotCheckbox.checked = config.useCustomBot || false;
-  updateBotTokenVisibility();
+  workDurationInput.value = ((config.workDuration || 28800000) / 3600000).toString();
 });
 
 // Save config
 saveBtn.addEventListener('click', () => {
-  const useCustomBot = useCustomBotCheckbox.checked;
   const config = {
     targetWiFiSSID: wifiSSIDInput.value.trim(),
-    telegramBotToken: botTokenInput.value.trim(),
     telegramChatId: chatIdInput.value.trim(),
     checkInterval: parseInt(checkIntervalInput.value) * 1000,
-    useCustomBot: useCustomBot
+    workDuration: parseFloat(workDurationInput.value) * 3600000
   };
 
   if (!config.targetWiFiSSID || !config.telegramChatId) {
     showMessage('Vui lòng điền đầy đủ thông tin!', 'error');
-    return;
-  }
-
-  // Check bot token only if using custom bot
-  if (useCustomBot && !config.telegramBotToken) {
-    showMessage('Vui lòng nhập Bot Token hoặc bỏ chọn "Sử dụng Telegram Bot riêng"!', 'error');
     return;
   }
 
@@ -81,16 +54,8 @@ ipcRenderer.on('config-saved', (_event: any, config: any) => {
 
 // Test Telegram connection
 testBtn.addEventListener('click', () => {
-  const useCustomBot = useCustomBotCheckbox.checked;
-  
   if (!chatIdInput.value.trim()) {
     showMessage('Vui lòng nhập Chat ID!', 'error');
-    return;
-  }
-
-  // Check bot token only if using custom bot
-  if (useCustomBot && !botTokenInput.value.trim()) {
-    showMessage('Vui lòng nhập Bot Token hoặc bỏ chọn "Sử dụng Telegram Bot riêng"!', 'error');
     return;
   }
 
@@ -155,6 +120,25 @@ ipcRenderer.on('status-update', (_event: any, data: any) => {
   if (data.connected) {
     statusMessage.textContent = data.message;
   }
+});
+
+// Countdown update
+ipcRenderer.on('countdown-update', (_event: any, data: any) => {
+  if (data.active) {
+    countdownDiv.style.display = 'block';
+    const hours = Math.floor(data.remaining / 3600000);
+    const minutes = Math.floor((data.remaining % 3600000) / 60000);
+    const seconds = Math.floor((data.remaining % 60000) / 1000);
+    countdownDiv.textContent = `⏱️ Thời gian còn lại: ${hours}h ${minutes}m ${seconds}s`;
+  } else {
+    countdownDiv.style.display = 'none';
+  }
+});
+
+// Work completed notification
+ipcRenderer.on('work-completed', (_event: any) => {
+  countdownDiv.style.display = 'none';
+  showMessage('✅ Đã hoàn thành thời gian làm việc! Đã gửi thông báo "Done" đến Telegram.', 'success');
 });
 
 // Helper function to show messages

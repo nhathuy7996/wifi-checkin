@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } from 'electron';
 import * as path from 'path';
 import { checkWiFiConnection } from './wifi-checker';
 import { sendTelegramMessage } from './telegram';
@@ -14,16 +14,21 @@ dotenv.config({ path: envPath });
 
 interface Config {
   targetWiFiSSID: string;
-  telegramBotToken: string;
   telegramChatId: string;
   checkInterval: number; // in milliseconds
-  useCustomBot: boolean; // true = use custom token, false = use .env token
+  workDuration: number; // in milliseconds
 }
 
 let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let isQuitting = false;
 let checkInterval: NodeJS.Timeout | null = null;
 let lastConnectionStatus = false;
 let config: Config;
+let workTimer: NodeJS.Timeout | null = null;
+let countdownInterval: NodeJS.Timeout | null = null;
+let workStartTime: number | null = null;
+let workEndTime: number | null = null;
 
 // Load or create config
 const configPath = path.join(app.getPath('userData'), 'config.json');
@@ -39,13 +44,11 @@ function loadConfig(): Config {
   }
 
   // Default config
-  const defaultBotToken = process.env.DEFAULT_BOT_TOKEN || '';
   return {
     targetWiFiSSID: 'YOUR_WIFI_NAME',
-    telegramBotToken: '',
     telegramChatId: 'YOUR_CHAT_ID',
     checkInterval: 30000, // 30 seconds
-    useCustomBot: false // Default use bot from .env
+    workDuration: 28800000 // 8 hours
   };
 }
 
@@ -58,6 +61,84 @@ function saveConfig(newConfig: Config) {
   }
 }
 
+function createTray() {
+  const iconPath = path.join(__dirname, 'icon.png');
+  
+  try {
+    const icon = nativeImage.createFromPath(iconPath);
+    tray = new Tray(icon.resize({ width: 16, height: 16 }));
+    
+    tray.setToolTip('WiFi Checker');
+    
+    // Click to show/hide window
+    tray.on('click', () => {
+      if (mainWindow) {
+        if (mainWindow.isVisible()) {
+          mainWindow.hide();
+        } else {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      }
+    });
+    
+    updateTrayMenu();
+    console.log('System tray created');
+  } catch (error) {
+    console.error('Error creating tray:', error);
+  }
+}
+
+function updateTrayMenu() {
+  if (!tray) return;
+  
+  const isMonitoring = checkInterval !== null;
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'WiFi Checker',
+      enabled: false
+    },
+    { type: 'separator' },
+    {
+      label: isMonitoring ? '✅ Đang theo dõi' : '⏸️ Đã dừng',
+      enabled: false
+    },
+    {
+      label: lastConnectionStatus ? `📶 Đã kết nối: ${config.targetWiFiSSID}` : '📶 Chưa kết nối',
+      enabled: false
+    },
+    { type: 'separator' },
+    {
+      label: '🖥️ Hiển thị cửa sổ',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      }
+    },
+    {
+      label: isMonitoring ? '⏸️ Dừng theo dõi' : '▶️ Bắt đầu theo dõi',
+      click: () => {
+        if (isMonitoring) {
+          stopMonitoring();
+        } else {
+          startMonitoring();
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: '🚪 Thoát',
+      click: () => {
+        app.quit();
+      }
+    }
+  ]);
+  
+  tray.setContextMenu(contextMenu);
+}
+
 function createWindow() {
   console.log('Creating window...');
   
@@ -67,7 +148,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 600,
     height: 500,
-    show: false,  // Don't show until ready
+    show: false,  // Start hidden in tray
     center: true,
     resizable: true,
     backgroundColor: '#ffffff',
@@ -84,15 +165,23 @@ function createWindow() {
   
   mainWindow.loadFile(htmlPath);
 
+  // Hide to tray instead of closing
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow?.hide();
+      console.log('Window hidden to tray');
+    }
+  });
+
   mainWindow.on('closed', () => {
     console.log('Window closed');
     mainWindow = null;
   });
 
   mainWindow.once('ready-to-show', () => {
-    console.log('Window ready to show - showing now!');
-    mainWindow?.show();
-    mainWindow?.focus();
+    console.log('Window ready - starting in tray mode');
+    // Don't show window automatically, let user open from tray
   });
 
   mainWindow.webContents.on('did-finish-load', () => {
@@ -102,12 +191,73 @@ function createWindow() {
   //mainWindow.webContents.openDevTools(); // Open DevTools to debug
 }
 
-// Get the correct bot token based on useCustomBot setting
-function getBotToken(): string {
-  if (config.useCustomBot) {
-    return config.telegramBotToken;
+function startWorkTimer() {
+  // Clear existing timers
+  if (workTimer) clearTimeout(workTimer);
+  if (countdownInterval) clearInterval(countdownInterval);
+
+  workStartTime = Date.now();
+  workEndTime = workStartTime + config.workDuration;
+
+  console.log(`[Work Timer] Started - Duration: ${config.workDuration / 3600000} hours`);
+
+  // Update countdown every second
+  countdownInterval = setInterval(() => {
+    const remaining = workEndTime! - Date.now();
+    
+    if (remaining <= 0) {
+      clearInterval(countdownInterval!);
+      countdownInterval = null;
+      return;
+    }
+
+    if (mainWindow) {
+      mainWindow.webContents.send('countdown-update', {
+        active: true,
+        remaining: remaining
+      });
+    }
+  }, 1000);
+
+  // Set timer to send "Done" message when work duration is complete
+  workTimer = setTimeout(async () => {
+    console.log('[Work Timer] Completed! Sending "Done" notification...');
+    
+    try {
+      const message = `✅ Done\n\nThời gian làm việc: ${config.workDuration / 3600000}h\nHoàn thành lúc: ${new Date().toLocaleString('vi-VN')}`;
+      await sendTelegramMessage(config.telegramChatId, message);
+      
+      if (mainWindow) {
+        mainWindow.webContents.send('work-completed');
+        mainWindow.webContents.send('countdown-update', { active: false });
+      }
+    } catch (error) {
+      console.error('Error sending "Done" message:', error);
+    }
+    
+    workTimer = null;
+    workStartTime = null;
+    workEndTime = null;
+  }, config.workDuration);
+}
+
+function stopWorkTimer() {
+  if (workTimer) {
+    clearTimeout(workTimer);
+    workTimer = null;
   }
-  return process.env.DEFAULT_BOT_TOKEN || '';
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+  workStartTime = null;
+  workEndTime = null;
+  
+  if (mainWindow) {
+    mainWindow.webContents.send('countdown-update', { active: false });
+  }
+  
+  console.log('[Work Timer] Stopped');
 }
 
 async function checkAndNotify() {
@@ -122,16 +272,18 @@ async function checkAndNotify() {
       
       try {
         await sendTelegramMessage(
-          getBotToken(),
           config.telegramChatId,
           message
         );
         console.log(`[Telegram] Message sent successfully!`);
         
+        // Start work timer when connected to WiFi
+        startWorkTimer();
+        
         if (mainWindow) {
           mainWindow.webContents.send('status-update', {
             connected: true,
-            message: 'Đã gửi thông báo đến Telegram'
+            message: 'Đã gửi thông báo đến Telegram. Bắt đầu đếm ngược...'
           });
         }
       } catch (error) {
@@ -143,9 +295,16 @@ async function checkAndNotify() {
           });
         }
       }
+    } else if (!isConnected && lastConnectionStatus) {
+      // WiFi disconnected - stop work timer
+      console.log('[WiFi Check] Disconnected from target WiFi. Stopping work timer.');
+      stopWorkTimer();
     }
     
     lastConnectionStatus = isConnected;
+    
+    // Update tray menu when connection status changes
+    updateTrayMenu();
     
     if (mainWindow) {
       mainWindow.webContents.send('wifi-status', {
@@ -168,6 +327,9 @@ function startMonitoring() {
   
   // Then check at intervals
   checkInterval = setInterval(checkAndNotify, config.checkInterval);
+  
+  // Update tray menu
+  updateTrayMenu();
 }
 
 function stopMonitoring() {
@@ -175,6 +337,10 @@ function stopMonitoring() {
     clearInterval(checkInterval);
     checkInterval = null;
   }
+  stopWorkTimer();
+  
+  // Update tray menu
+  updateTrayMenu();
 }
 
 app.on('ready', () => {
@@ -187,6 +353,7 @@ app.on('ready', () => {
   console.log('Config loaded:', { ...config, telegramBotToken: '***' });
   
   createWindow();
+  createTray();
   
   // Send config to renderer
   if (mainWindow) {
@@ -199,16 +366,21 @@ app.on('ready', () => {
 
 app.on('window-all-closed', () => {
   console.log('All windows closed');
-  stopMonitoring();
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  // Don't quit - keep running in tray
+  // App will only quit when user selects "Quit" from tray menu
 });
 
 app.on('activate', () => {
   if (mainWindow === null) {
     createWindow();
+  } else {
+    mainWindow.show();
   }
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
+  stopMonitoring();
 });
 
 // IPC handlers
@@ -229,18 +401,8 @@ ipcMain.on('save-config', (event: any, newConfig: Config) => {
 ipcMain.on('test-connection', async () => {
   try {
     const message = `🔔 Test thông báo từ WiFi Checker\nThời gian: ${new Date().toLocaleString('vi-VN')}`;
-    const botToken = getBotToken();
-    
-    if (!botToken) {
-      mainWindow?.webContents.send('test-result', { 
-        success: false, 
-        message: 'Bot token không tồn tại. Vui lòng kiểm tra .env hoặc nhập custom token!' 
-      });
-      return;
-    }
     
     await sendTelegramMessage(
-      botToken,
       config.telegramChatId,
       message
     );
