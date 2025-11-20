@@ -1,4 +1,4 @@
-const { ipcRenderer } = require('electron');
+const { ipcRenderer, shell } = require('electron');
 
 // DOM elements
 const wifiSSIDInput = document.getElementById('wifiSSID') as HTMLInputElement;
@@ -6,6 +6,7 @@ const chatIdInput = document.getElementById('chatId') as HTMLInputElement;
 const checkIntervalInput = document.getElementById('checkInterval') as HTMLInputElement;
 const workDurationInput = document.getElementById('workDuration') as HTMLInputElement;
 const countdownDiv = document.getElementById('countdown') as HTMLDivElement;
+const getMyIdBtn = document.getElementById('getMyIdBtn') as HTMLButtonElement;
 const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement;
 const testBtn = document.getElementById('testBtn') as HTMLButtonElement;
 const startBtn = document.getElementById('startBtn') as HTMLButtonElement;
@@ -16,6 +17,16 @@ const statusMessage = document.getElementById('statusMessage') as HTMLDivElement
 const messageBox = document.getElementById('messageBox') as HTMLDivElement;
 
 let isMonitoring = false;
+
+// Handle "Get My ID" button
+getMyIdBtn.addEventListener('click', () => {
+  // Open Telegram bot in default browser
+  const botUsername = 'wifi_checkin_bot'; // Thay bằng username bot của bạn
+  const telegramUrl = `https://t.me/${botUsername}?start=getChatId`;
+  
+  shell.openExternal(telegramUrl);
+  showMessage('📱 Đã mở Telegram bot. Gửi /start để nhận Chat ID của bạn!', 'info');
+});
 
 // Load config on startup
 ipcRenderer.on('config-loaded', (_event: any, config: any) => {

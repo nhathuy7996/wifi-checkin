@@ -297,8 +297,8 @@ async function checkAndNotify() {
       }
     } else if (!isConnected && lastConnectionStatus) {
       // WiFi disconnected - stop work timer
-      console.log('[WiFi Check] Disconnected from target WiFi. Stopping work timer.');
-      stopWorkTimer();
+      console.log('[WiFi Check] Disconnected from target WiFi. reset last wifi status.');
+      lastConnectionStatus = false;
     }
     
     lastConnectionStatus = isConnected;

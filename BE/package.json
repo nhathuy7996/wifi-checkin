@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "node src/test-api.js"
+    "test": "node src/test-api.js",
+    "up": " rsync -azv -e 'ssh' ../BE gamedevtoi.site:CODE/wifi_checker/"
   },
   "keywords": [
     "api",
